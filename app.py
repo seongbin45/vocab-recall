@@ -197,15 +197,16 @@ st.markdown(
     font-size: clamp(1.2rem, 2vw + 0.9rem, 1.55rem);
     line-height: 1.4;
   }
-  .vocab-hint {
-    text-align: center;
-    color: color-mix(in srgb, var(--text-color, currentColor) 65%, transparent);
-    margin: 0 0 var(--space-2) 0;
-    font-size: clamp(0.95rem, 1vw + 0.8rem, 1.1rem);
-  }
   .vocab-cue h2,
   .vocab-answer {
     color: var(--text-color, inherit);
+  }
+  /* Study focus mode */
+  .study-progress {
+    text-align: center;
+    font-size: 0.9rem;
+    color: color-mix(in srgb, var(--text-color, currentColor) 55%, transparent);
+    margin: 0.75rem 0 0;
   }
 
   /* Action row wrapper */
@@ -700,6 +701,7 @@ def header_stats(data: dict) -> None:
 
 
 def show_recall(data: dict) -> None:
+    """Focus mode: word card only — no calendar, title, or stats."""
     ids: list[int] = st.session_state.queue_ids
     idx: int = st.session_state.idx
     field: str = st.session_state.field
@@ -727,22 +729,18 @@ def show_recall(data: dict) -> None:
         st.rerun()
         return
 
-    # No calendar during study — keep focus on the card only
-    st.caption(f"{st.session_state.label} · {idx + 1} / {n}")
-
+    st.markdown(
+        f'<p class="study-progress">{idx + 1} / {n}</p>',
+        unsafe_allow_html=True,
+    )
     st.markdown(
         f'<div class="vocab-cue"><h2>{item["en"]}</h2></div>',
         unsafe_allow_html=True,
     )
 
     if not st.session_state.revealed:
-        st.markdown(
-            '<p class="vocab-hint">Think of the Korean meaning, then reveal.</p>',
-            unsafe_allow_html=True,
-        )
-        st.markdown('<div class="vocab-actions"></div>', unsafe_allow_html=True)
         if st.button(
-            "Reveal meaning",
+            "Reveal",
             type="primary",
             use_container_width=True,
             key=f"r_{field}_{idx}",
@@ -755,8 +753,6 @@ def show_recall(data: dict) -> None:
         f'<p class="vocab-answer">{item["ko"]}</p>',
         unsafe_allow_html=True,
     )
-    st.markdown('<div class="vocab-actions"></div>', unsafe_allow_html=True)
-    # gap follows --col-gap; stacks to full width under 420px
     c1, c2 = st.columns(2, gap="medium")
     with c1:
         if st.button(
@@ -801,12 +797,10 @@ def show_done(data: dict) -> None:
     )
 
     n = int(data["settings"].get("batch_size", 5))
-    st.markdown('<div class="vocab-actions"></div>', unsafe_allow_html=True)
+    # Defer study start to next run so this frame never paints calendar + cards together
     if st.button(f"Study {n} more words", type="primary", use_container_width=True):
-        if auto_start_new(data, ["done"]):
-            st.rerun()
-        else:
-            st.warning("No words left in the banks.")
+        st.session_state.go_study_more = True
+        st.rerun()
 
     with st.expander("Settings"):
         settings = data["settings"]
@@ -875,6 +869,12 @@ def main() -> None:
     init_session()
     data = load_data()
 
+    # Start extra bank batch before any Done/calendar UI is drawn
+    if st.session_state.pop("go_study_more", False):
+        if not auto_start_new(data, ["done"]):
+            st.session_state.phase = "done"
+            st.warning("No words left in the banks.")
+
     if not st.session_state.booted:
         st.session_state.booted = True
         build_and_start(data)
@@ -884,10 +884,14 @@ def main() -> None:
     if phase == "boot":
         build_and_start(data)
         st.rerun()
-    elif phase == "recall":
+        return
+
+    # Exclusive study path: never render calendar or Done chrome
+    if phase == "recall":
         show_recall(data)
-    else:
-        show_done(data)
+        return
+
+    show_done(data)
 
 
 if __name__ == "__main__":
