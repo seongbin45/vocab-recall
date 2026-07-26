@@ -9,9 +9,11 @@ Plain Streamlit UI (works on phone and PC). No custom visual design.
 from __future__ import annotations
 
 import calendar as cal_mod
+import json
 from datetime import date, timedelta
 
 import streamlit as st
+import streamlit.components.v1 as components
 
 from bank import BANKS, bank_stats, draw_words
 from storage import (
@@ -700,6 +702,35 @@ def header_stats(data: dict) -> None:
     render_calendar(data)
 
 
+def play_pronunciation(text: str, *, key: str) -> None:
+    """
+    Step 1 — hear the English word via the browser (Web Speech API).
+    No API key, no extra packages. Quality depends on the device/OS voice.
+    """
+    word = (text or "").strip()
+    if not word:
+        return
+    if st.button("Listen", key=key, use_container_width=True):
+        # Runs in a tiny component after the click (user gesture → allowed to speak)
+        components.html(
+            f"""
+            <script>
+            (function () {{
+              const text = {json.dumps(word)};
+              if (!window.speechSynthesis) {{ return; }}
+              window.speechSynthesis.cancel();
+              const u = new SpeechSynthesisUtterance(text);
+              u.lang = "en-US";
+              u.rate = 0.9;
+              window.speechSynthesis.speak(u);
+            }})();
+            </script>
+            """,
+            height=0,
+            width=0,
+        )
+
+
 def show_recall(data: dict) -> None:
     """Focus mode: word card only — no calendar, title, or stats."""
     ids: list[int] = st.session_state.queue_ids
@@ -737,6 +768,8 @@ def show_recall(data: dict) -> None:
         f'<div class="vocab-cue"><h2>{item["en"]}</h2></div>',
         unsafe_allow_html=True,
     )
+    # Pronunciation first step: always available on the study card
+    play_pronunciation(item["en"], key=f"listen_{field}_{idx}_{item['id']}")
 
     if not st.session_state.revealed:
         if st.button(
