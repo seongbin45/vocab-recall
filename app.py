@@ -706,15 +706,15 @@ def play_pronunciation(text: str, *, key: str) -> None:
     """
     Hear the English word via the browser (Web Speech API).
 
-    Important for mobile: speech must start from a *direct* tap on a control
-    inside this component. A Streamlit button → rerun → inject script loses
-    the user gesture, so iOS/Android silence it.
+    Speaker icon control; colors/fonts inherit from the host (no hardcoding).
+    Speech starts on a direct tap inside this component (required on mobile).
     """
     word = (text or "").strip()
     if not word:
         return
     # key keeps each card’s widget identity stable across Streamlit reruns
     _ = key
+    # SVG uses currentColor so it follows theme text color (light/dark)
     components.html(
         f"""
         <!DOCTYPE html>
@@ -723,35 +723,62 @@ def play_pronunciation(text: str, *, key: str) -> None:
           <meta charset="utf-8"/>
           <meta name="viewport" content="width=device-width, initial-scale=1"/>
           <style>
+            /* No hardcoded theme colors/fonts — system + currentColor only */
             html, body {{
-              margin: 0; padding: 0;
+              margin: 0;
+              padding: 0;
               background: transparent;
-              font-family: system-ui, -apple-system, sans-serif;
+              color: CanvasText;
             }}
-            button {{
-              width: 100%;
-              min-height: 3.25rem;
-              font-size: 1.1rem;
-              font-weight: 600;
-              border-radius: 12px;
-              border: 1px solid rgba(127,127,127,0.45);
+            .wrap {{
+              display: flex;
+              flex-direction: column;
+              align-items: center;
+              gap: 0.25rem;
+            }}
+            button#listen {{
+              display: inline-flex;
+              align-items: center;
+              justify-content: center;
+              min-width: 2.75rem;
+              min-height: 2.75rem;
+              padding: 0.5rem;
+              margin: 0;
+              border: none;
+              border-radius: 999px;
               background: transparent;
-              color: inherit;
+              color: CanvasText;
               cursor: pointer;
               -webkit-tap-highlight-color: transparent;
+              line-height: 0;
             }}
-            button:active {{ opacity: 0.75; }}
-            .err {{
-              font-size: 0.8rem;
-              color: #ef4444;
+            button#listen:active {{ opacity: 0.65; }}
+            button#listen svg {{
+              width: 1.75rem;
+              height: 1.75rem;
+              display: block;
+              fill: currentColor;
+            }}
+            #msg {{
+              display: none;
               text-align: center;
-              margin-top: 0.25rem;
+              color: CanvasText;
+              opacity: 0.8;
+              margin: 0;
+              font: inherit;
             }}
+            #msg.show {{ display: block; }}
           </style>
         </head>
         <body>
-          <button id="listen" type="button">Listen</button>
-          <div id="msg" class="err" hidden></div>
+          <div class="wrap">
+            <button id="listen" type="button" aria-label="Listen to pronunciation" title="Listen">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/>
+              </svg>
+            </button>
+            <p id="msg" hidden></p>
+          </div>
           <script>
           (function () {{
             const text = {json.dumps(word)};
@@ -760,12 +787,12 @@ def play_pronunciation(text: str, *, key: str) -> None:
 
             function showErr(t) {{
               msg.hidden = false;
+              msg.classList.add("show");
               msg.textContent = t;
             }}
 
             function pickVoice(synth) {{
               const voices = synth.getVoices() || [];
-              // Prefer an English voice when the OS exposes one
               return (
                 voices.find(v => v.lang === "en-US") ||
                 voices.find(v => v.lang === "en-GB") ||
@@ -777,12 +804,10 @@ def play_pronunciation(text: str, *, key: str) -> None:
             function speak() {{
               const synth = window.speechSynthesis;
               if (!synth) {{
-                showErr("Speech not supported in this browser");
+                showErr("Speech not supported");
                 return;
               }}
-              try {{
-                synth.cancel();
-              }} catch (e) {{}}
+              try {{ synth.cancel(); }} catch (e) {{}}
 
               const u = new SpeechSynthesisUtterance(text);
               u.lang = "en-US";
@@ -793,18 +818,12 @@ def play_pronunciation(text: str, *, key: str) -> None:
                 u.voice = voice;
                 u.lang = voice.lang || "en-US";
               }}
-
-              // iOS often needs a short delay after cancel()
               setTimeout(function () {{
-                try {{
-                  synth.speak(u);
-                }} catch (e) {{
-                  showErr("Could not play audio");
-                }}
+                try {{ synth.speak(u); }}
+                catch (e) {{ showErr("Could not play"); }}
               }}, 60);
             }}
 
-            // Prime voice list (Chrome/iOS load voices async)
             if (window.speechSynthesis) {{
               window.speechSynthesis.getVoices();
               window.speechSynthesis.onvoiceschanged = function () {{
@@ -812,11 +831,11 @@ def play_pronunciation(text: str, *, key: str) -> None:
               }};
             }}
 
-            // Direct tap handler — keeps user gesture for mobile autoplay policy
             btn.addEventListener("click", function (e) {{
               e.preventDefault();
               e.stopPropagation();
               msg.hidden = true;
+              msg.classList.remove("show");
               speak();
             }}, {{ passive: false }});
           }})();
@@ -824,7 +843,7 @@ def play_pronunciation(text: str, *, key: str) -> None:
         </body>
         </html>
         """,
-        height=64,
+        height=56,
     )
 
 
