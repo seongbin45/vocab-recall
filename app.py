@@ -58,7 +58,7 @@ st.markdown(
 
     /* page chrome */
     --page-x: clamp(0.9rem, 4vw, 2.25rem);
-    --page-y: clamp(0.9rem, 2.8vw, 2.25rem);
+    --page-y: clamp(1.35rem, 3.5vw, 2.75rem);
     --content-max: min(42rem, 100%);
 
     /* controls */
@@ -151,16 +151,22 @@ st.markdown(
     line-height: 1.2;
   }
 
-  /* Headings: kill Streamlit default huge top padding; use fluid bottom */
+  /* Headings: keep title readable; extra top space for "vocab" */
   h1, h2, h3,
   [data-testid="stMarkdownContainer"] h1,
   [data-testid="stMarkdownContainer"] h2,
   [data-testid="stMarkdownContainer"] h3 {
     padding-top: 0 !important;
-    margin-top: 0 !important;
     margin-bottom: var(--space-1) !important;
   }
-  h1 { font-size: clamp(1.6rem, 1.2vw + 1.35rem, 2.1rem) !important; }
+  h1 {
+    font-size: clamp(1.6rem, 1.2vw + 1.35rem, 2.1rem) !important;
+    margin-top: 0.35rem !important;
+    color: var(--text-color, inherit) !important;
+  }
+  h2, h3 {
+    margin-top: 0 !important;
+  }
   h2 { font-size: clamp(1.45rem, 1.5vw + 1.15rem, 2rem) !important; }
   h3 { font-size: clamp(1.2rem, 1vw + 1rem, 1.45rem) !important; }
 
@@ -664,19 +670,18 @@ def render_calendar(data: dict) -> None:
 
     sel = parse_date(st.session_state.selected_day)
     act = day_activity(data, sel)
-    pct = int(round(act["progress"] * 100))
-    st.markdown(
-        f'<div class="cal-day-summary"><strong>{sel.isoformat()}</strong> · '
-        f"words <strong>{act['count']}</strong> · "
-        f"progress <strong>{pct}%</strong> "
-        f"(same-day {act['same_done']}/{act['count'] or 0}, "
-        f"next-day {act['next_done']}/{act['count'] or 0}"
-        f"{', fails ' + str(act['fails']) if act['fails'] else ''})"
-        f"</div>",
-        unsafe_allow_html=True,
-    )
+    # Day detail only when there are words (keeps top of screen free)
     if act["items"]:
-        with st.expander(f"Words on {sel.isoformat()} ({act['count']})", expanded=False):
+        with st.expander(
+            f"{sel.isoformat()} · {act['count']} words · "
+            f"{int(round(act['progress'] * 100))}%",
+            expanded=False,
+        ):
+            st.caption(
+                f"same-day {act['same_done']}/{act['count']} · "
+                f"next-day {act['next_done']}/{act['count']}"
+                + (f" · fails {act['fails']}" if act["fails"] else "")
+            )
             for it in act["items"]:
                 flags = []
                 if it.get("same_day"):
@@ -688,15 +693,9 @@ def render_calendar(data: dict) -> None:
                 flag = f" — {', '.join(flags)}" if flags else " — pending"
                 st.write(f"**{it['en']}** · {it['ko']}{flag}")
 
-    s = stats(data, t)
-    st.caption(
-        f"week +{s['added_this_week']}  ·  fail {s['failed']}  ·  "
-        f"next-day {s['pending_next_day']}  ·  total {s['total']}"
-    )
-
 
 def header_stats(data: dict) -> None:
-    """Top chrome: calendar for day selection + progress / word counts."""
+    """Top chrome: calendar only (compact)."""
     render_calendar(data)
 
 
