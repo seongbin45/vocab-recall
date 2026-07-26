@@ -727,12 +727,9 @@ def show_recall(data: dict) -> None:
         st.rerun()
         return
 
-    st.title("vocab")
-    header_stats(data)
-    st.write(f"**{st.session_state.label}** — {idx + 1} / {n}")
-    st.divider()
+    # No calendar during study — keep focus on the card only
+    st.caption(f"{st.session_state.label} · {idx + 1} / {n}")
 
-    # Cue uses fluid padding via CSS class (not fixed rem design chrome)
     st.markdown(
         f'<div class="vocab-cue"><h2>{item["en"]}</h2></div>',
         unsafe_allow_html=True,
