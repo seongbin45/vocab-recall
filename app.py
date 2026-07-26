@@ -193,9 +193,13 @@ st.markdown(
   }
   .vocab-hint {
     text-align: center;
-    color: #6b7280;
+    color: color-mix(in srgb, var(--text-color, currentColor) 65%, transparent);
     margin: 0 0 var(--space-2) 0;
     font-size: clamp(0.95rem, 1vw + 0.8rem, 1.1rem);
+  }
+  .vocab-cue h2,
+  .vocab-answer {
+    color: var(--text-color, inherit);
   }
 
   /* Action row wrapper */
