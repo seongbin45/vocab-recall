@@ -211,10 +211,10 @@ st.markdown(
     min-height: clamp(6rem, 18vh, 10rem) !important;
   }
 
-  /* ---- Calendar (CSS grid — stays 7 columns on mobile) ---- */
+  /* ---- Calendar: theme-aware (light + dark) via Streamlit CSS vars ---- */
   .cal-shell {
-    background: #fff;
-    border: 1px solid #e5e7eb;
+    background: var(--secondary-background-color, transparent);
+    border: 1px solid color-mix(in srgb, var(--text-color, currentColor) 16%, transparent);
     border-radius: 12px;
     padding: 0.55rem 0.45rem 0.65rem;
     margin: 0.15rem 0 0.35rem;
@@ -229,7 +229,7 @@ st.markdown(
     text-align: center;
     font-size: 0.68rem;
     font-weight: 600;
-    color: #9ca3af;
+    color: color-mix(in srgb, var(--text-color, currentColor) 55%, transparent);
     padding: 0.15rem 0;
   }
   .cal-cell {
@@ -239,9 +239,9 @@ st.markdown(
     justify-content: center;
     min-height: clamp(2.4rem, 10vw, 3.1rem);
     border-radius: 8px;
-    border: 1px solid #e5e7eb;
-    background: #f9fafb;
-    color: #111827;
+    border: 1px solid color-mix(in srgb, var(--text-color, currentColor) 18%, transparent);
+    background: var(--background-color, transparent);
+    color: var(--text-color, inherit);
     font-size: clamp(0.68rem, 2.6vw, 0.82rem);
     line-height: 1.15;
     box-sizing: border-box;
@@ -249,51 +249,63 @@ st.markdown(
   .cal-cell .n { font-weight: 650; font-size: 0.95em; }
   .cal-cell .m {
     font-size: 0.85em;
-    color: #6b7280;
+    color: color-mix(in srgb, var(--text-color, currentColor) 62%, transparent);
     margin-top: 0.12rem;
   }
   .cal-cell.pad {
     border: none;
     background: transparent;
   }
-  .cal-cell.st-empty .m { color: #d1d5db; }
-  .cal-cell.st-todo { background: #fff; border-color: #d1d5db; }
+  .cal-cell.st-empty .m {
+    color: color-mix(in srgb, var(--text-color, currentColor) 35%, transparent);
+  }
+  .cal-cell.st-todo {
+    background: var(--background-color, transparent);
+    border-color: color-mix(in srgb, var(--text-color, currentColor) 28%, transparent);
+  }
+  /* Status tints: mix accent into theme surface so both themes stay readable */
   .cal-cell.st-partial {
-    background: #fffbeb;
-    border-color: #f59e0b;
+    background: color-mix(in srgb, #f59e0b 22%, var(--secondary-background-color, transparent));
+    border-color: color-mix(in srgb, #f59e0b 55%, transparent);
   }
-  .cal-cell.st-partial .m { color: #b45309; }
+  .cal-cell.st-partial .m {
+    color: color-mix(in srgb, #f59e0b 55%, var(--text-color, currentColor));
+  }
   .cal-cell.st-done {
-    background: #ecfdf5;
-    border-color: #22c55e;
+    background: color-mix(in srgb, #22c55e 20%, var(--secondary-background-color, transparent));
+    border-color: color-mix(in srgb, #22c55e 50%, transparent);
   }
-  .cal-cell.st-done .m { color: #15803d; }
+  .cal-cell.st-done .m {
+    color: color-mix(in srgb, #22c55e 50%, var(--text-color, currentColor));
+  }
   .cal-cell.st-fail {
-    background: #fef2f2;
-    border-color: #ef4444;
+    background: color-mix(in srgb, #ef4444 20%, var(--secondary-background-color, transparent));
+    border-color: color-mix(in srgb, #ef4444 50%, transparent);
   }
-  .cal-cell.st-fail .m { color: #b91c1c; }
+  .cal-cell.st-fail .m {
+    color: color-mix(in srgb, #ef4444 50%, var(--text-color, currentColor));
+  }
   .cal-cell.selected {
-    outline: 2px solid #2563eb;
+    outline: 2px solid var(--primary-color, #3b82f6);
     outline-offset: 1px;
-    border-color: #2563eb !important;
+    border-color: var(--primary-color, #3b82f6) !important;
   }
   .cal-cell.today:not(.selected) {
-    border-color: #93c5fd;
+    border-color: color-mix(in srgb, var(--primary-color, #3b82f6) 55%, transparent);
   }
   .cal-month-title {
     text-align: center;
     font-weight: 650;
     font-size: 1.05rem;
     padding: 0.55rem 0;
-    color: #111827;
+    color: var(--text-color, inherit);
   }
   .cal-legend {
     display: flex;
     flex-wrap: wrap;
     gap: 0.45rem 0.85rem;
     font-size: 0.75rem;
-    color: #6b7280;
+    color: color-mix(in srgb, var(--text-color, currentColor) 65%, transparent);
     margin: 0.45rem 0 0.1rem;
   }
   .cal-legend span::before {
@@ -308,12 +320,23 @@ st.markdown(
   .cal-legend .lg-done::before { background: #22c55e; }
   .cal-legend .lg-partial::before { background: #f59e0b; }
   .cal-legend .lg-fail::before { background: #ef4444; }
-  .cal-legend .lg-empty::before { background: #d1d5db; }
+  .cal-legend .lg-empty::before {
+    background: color-mix(in srgb, var(--text-color, currentColor) 30%, transparent);
+  }
   .cal-day-summary {
     font-size: 0.92rem;
-    color: #374151;
+    color: var(--text-color, inherit);
     margin: 0.35rem 0 0.1rem;
     line-height: 1.35;
+  }
+  /* Fallback when color-mix unsupported: still use theme text color */
+  @supports not (color: color-mix(in srgb, red 50%, blue)) {
+    .cal-month-title,
+    .cal-day-summary,
+    .cal-cell { color: var(--text-color, inherit); }
+    .cal-wd,
+    .cal-legend,
+    .cal-cell .m { opacity: 0.75; }
   }
 </style>
 """,
