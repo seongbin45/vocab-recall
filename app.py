@@ -12,7 +12,6 @@ import calendar as cal_mod
 from datetime import date, timedelta
 
 import streamlit as st
-import streamlit.components.v1 as components
 
 from bank import BANKS, bank_stats, draw_words
 from storage import (
@@ -238,16 +237,14 @@ st.markdown(
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    min-height: clamp(2.55rem, 11vw, 3.35rem);
+    min-height: clamp(2.4rem, 10vw, 3.1rem);
     border-radius: 8px;
     border: 1px solid #e5e7eb;
     background: #f9fafb;
-    text-decoration: none !important;
-    color: #111827 !important;
+    color: #111827;
     font-size: clamp(0.68rem, 2.6vw, 0.82rem);
     line-height: 1.15;
     box-sizing: border-box;
-    -webkit-tap-highlight-color: transparent;
   }
   .cal-cell .n { font-weight: 650; font-size: 0.95em; }
   .cal-cell .m {
@@ -258,7 +255,6 @@ st.markdown(
   .cal-cell.pad {
     border: none;
     background: transparent;
-    pointer-events: none;
   }
   .cal-cell.st-empty .m { color: #d1d5db; }
   .cal-cell.st-todo { background: #fff; border-color: #d1d5db; }
@@ -284,6 +280,13 @@ st.markdown(
   }
   .cal-cell.today:not(.selected) {
     border-color: #93c5fd;
+  }
+  .cal-month-title {
+    text-align: center;
+    font-weight: 650;
+    font-size: 1.05rem;
+    padding: 0.55rem 0;
+    color: #111827;
   }
   .cal-legend {
     display: flex;
@@ -312,12 +315,10 @@ st.markdown(
     margin: 0.35rem 0 0.1rem;
     line-height: 1.35;
   }
-  /* Month nav stays 3-across even on small phones */
-  @media (max-width: 640px) {
-    div[data-testid="stHorizontalBlock"]:has(button#cal_prev),
-    div[data-testid="stHorizontalBlock"]:has(button[kind][data-testid*="cal"]) {
-      flex-direction: row !important;
-    }
+  /* Month nav buttons: normal height, not oversized */
+  div[data-testid="stHorizontalBlock"]:has(button[kind]) .stButton > button {
+    min-height: 2.5rem !important;
+    font-size: 0.95rem !important;
   }
 </style>
 """,
@@ -552,30 +553,8 @@ def _status_marker(status: str) -> str:
     }.get(status, "·")
 
 
-def _sync_calendar_query() -> None:
-    """Read day selection from URL (HTML grid links work on mobile)."""
-    try:
-        raw = st.query_params.get("cal_day")
-    except Exception:
-        raw = None
-    if not raw:
-        return
-    if isinstance(raw, list):
-        raw = raw[0] if raw else None
-    if not raw:
-        return
-    try:
-        d = parse_date(str(raw))
-    except Exception:
-        return
-    st.session_state.selected_day = d.isoformat()
-    # Keep month view on the selected day
-    st.session_state.cal_year = d.year
-    st.session_state.cal_month = d.month
-
-
 def _calendar_grid_html(data: dict, year: int, month: int, selected: str) -> str:
-    """True 7-column CSS grid — does not collapse on mobile Streamlit layouts."""
+    """Display-only 7-column CSS grid (no links — selection is via date_input)."""
     t = today()
     parts: list[str] = ['<div class="cal-shell"><div class="cal-grid">']
     for name in ("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"):
@@ -596,104 +575,73 @@ def _calendar_grid_html(data: dict, year: int, month: int, selected: str) -> str
             if d == t:
                 st_cls += " today"
             marker = _status_marker(act["status"])
-            if act["count"]:
-                meta = f"{marker} {act['count']}"
-            else:
-                meta = marker
-            # Relative query keeps Streamlit session; forces grid taps on phone
+            meta = f"{marker} {act['count']}" if act["count"] else marker
             parts.append(
-                f'<a class="cal-cell {st_cls}" href="?cal_day={iso}" '
-                f'title="{iso}: {act["count"]} words, {int(act["progress"]*100)}%">'
+                f'<div class="cal-cell {st_cls}" title="{iso}: {act["count"]} words">'
                 f'<span class="n">{day_num}</span>'
-                f'<span class="m">{meta}</span></a>'
+                f'<span class="m">{meta}</span></div>'
             )
     parts.append("</div></div>")
     return "".join(parts)
 
 
-def render_calendar(data: dict) -> None:
-    """Month calendar at top: CSS grid + day selection; progress + word count."""
-    t = today()
-    _sync_calendar_query()
+def _shift_month(year: int, month: int, delta: int) -> tuple[int, int]:
+    m = month + delta
+    y = year
+    while m < 1:
+        m += 12
+        y -= 1
+    while m > 12:
+        m -= 12
+        y += 1
+    return y, m
 
-    if "cal_year" not in st.session_state:
-        st.session_state.cal_year = t.year
-        st.session_state.cal_month = t.month
+
+def render_calendar(data: dict) -> None:
+    """Month calendar: visual grid + safe date picker (no iframe links)."""
+    t = today()
     if "selected_day" not in st.session_state:
         st.session_state.selected_day = t.isoformat()
+    try:
+        sel = parse_date(st.session_state.selected_day)
+    except Exception:
+        sel = t
+        st.session_state.selected_day = t.isoformat()
 
-    year = int(st.session_state.cal_year)
-    month = int(st.session_state.cal_month)
+    # Keep month view in sync with selection
+    year = sel.year
+    month = sel.month
+    st.session_state.cal_year = year
+    st.session_state.cal_month = month
 
-    nav_l, nav_c, nav_r = st.columns([1, 3, 1])
-    with nav_l:
-        if st.button("‹", key="cal_prev", use_container_width=True):
-            first = date(year, month, 1)
-            prev = first - timedelta(days=1)
-            st.session_state.cal_year = prev.year
-            st.session_state.cal_month = prev.month
+    # Compact month nav — plain labels, not awkward glyphs
+    n1, n2, n3 = st.columns([1, 2, 1])
+    def _set_selected(d: date) -> None:
+        st.session_state.selected_day = d.isoformat()
+        st.session_state.cal_date_input = d
+
+    with n1:
+        if st.button("Prev", key="cal_prev", use_container_width=True):
+            y, m = _shift_month(year, month, -1)
+            last = cal_mod.monthrange(y, m)[1]
+            _set_selected(date(y, m, min(sel.day, last)))
             st.rerun()
-    with nav_c:
+    with n2:
         st.markdown(
-            f"<div style='text-align:center;font-weight:650;padding-top:0.35rem'>"
-            f"{cal_mod.month_name[month]} {year}</div>",
+            f"<div class='cal-month-title'>{cal_mod.month_name[month]} {year}</div>",
             unsafe_allow_html=True,
         )
-    with nav_r:
-        if st.button("›", key="cal_next", use_container_width=True):
-            if month == 12:
-                st.session_state.cal_year = year + 1
-                st.session_state.cal_month = 1
-            else:
-                st.session_state.cal_month = month + 1
+    with n3:
+        if st.button("Next", key="cal_next", use_container_width=True):
+            y, m = _shift_month(year, month, 1)
+            last = cal_mod.monthrange(y, m)[1]
+            _set_selected(date(y, m, min(sel.day, last)))
             st.rerun()
 
-    selected = st.session_state.selected_day
-    # components.html keeps CSS grid intact (st.markdown can flatten mobile layout)
-    grid_html = _calendar_grid_html(data, year, month, selected)
-    # Height: ~6 rows * cell + padding (responsive enough for phones)
-    components.html(
-        f"""<!DOCTYPE html><html><head><meta charset="utf-8"/>
-<meta name="viewport" content="width=device-width, initial-scale=1"/>
-<style>
-  html, body {{ margin: 0; padding: 0; font-family: system-ui, -apple-system, sans-serif; }}
-  .cal-shell {{
-    background: #fff; border: 1px solid #e5e7eb; border-radius: 12px;
-    padding: 0.45rem 0.35rem 0.5rem;
-  }}
-  .cal-grid {{
-    display: grid; grid-template-columns: repeat(7, minmax(0, 1fr));
-    gap: 0.28rem; width: 100%;
-  }}
-  .cal-wd {{
-    text-align: center; font-size: 0.68rem; font-weight: 600;
-    color: #9ca3af; padding: 0.12rem 0;
-  }}
-  .cal-cell {{
-    display: flex; flex-direction: column; align-items: center; justify-content: center;
-    min-height: 2.65rem; border-radius: 8px; border: 1px solid #e5e7eb;
-    background: #f9fafb; text-decoration: none; color: #111827;
-    font-size: 0.72rem; line-height: 1.15; box-sizing: border-box;
-  }}
-  .cal-cell .n {{ font-weight: 650; font-size: 0.95em; }}
-  .cal-cell .m {{ font-size: 0.85em; color: #6b7280; margin-top: 0.1rem; }}
-  .cal-cell.pad {{ border: none; background: transparent; pointer-events: none; }}
-  .cal-cell.st-empty .m {{ color: #d1d5db; }}
-  .cal-cell.st-todo {{ background: #fff; border-color: #d1d5db; }}
-  .cal-cell.st-partial {{ background: #fffbeb; border-color: #f59e0b; }}
-  .cal-cell.st-partial .m {{ color: #b45309; }}
-  .cal-cell.st-done {{ background: #ecfdf5; border-color: #22c55e; }}
-  .cal-cell.st-done .m {{ color: #15803d; }}
-  .cal-cell.st-fail {{ background: #fef2f2; border-color: #ef4444; }}
-  .cal-cell.st-fail .m {{ color: #b91c1c; }}
-  .cal-cell.selected {{ outline: 2px solid #2563eb; outline-offset: 1px; border-color: #2563eb; }}
-  .cal-cell.today:not(.selected) {{ border-color: #93c5fd; }}
-  @media (min-width: 420px) {{
-    .cal-cell {{ min-height: 3rem; font-size: 0.8rem; }}
-  }}
-</style></head><body>{grid_html}</body></html>""",
-        height=320,
-        scrolling=False,
+    # Visual month (display only) — real CSS grid, works on mobile
+    st.markdown(
+        _calendar_grid_html(data, year, month, sel.isoformat()),
+        unsafe_allow_html=True,
     )
 
     st.markdown(
@@ -706,11 +654,24 @@ def render_calendar(data: dict) -> None:
         unsafe_allow_html=True,
     )
 
-    try:
-        sel = parse_date(st.session_state.selected_day)
-    except Exception:
-        sel = t
-        st.session_state.selected_day = t.isoformat()
+    # Safe day selection (native widget — no iframe / query-param crashes)
+    if "cal_date_input" not in st.session_state:
+        st.session_state.cal_date_input = sel
+    picked = st.date_input(
+        "Select day",
+        min_value=date(2020, 1, 1),
+        max_value=t + timedelta(days=365),
+        format="YYYY-MM-DD",
+        key="cal_date_input",
+    )
+    if isinstance(picked, date):
+        iso = picked.isoformat()
+        if iso != st.session_state.selected_day:
+            st.session_state.selected_day = iso
+            # Sync month title/grid when user picks another month via picker
+            st.rerun()
+
+    sel = parse_date(st.session_state.selected_day)
     act = day_activity(data, sel)
     pct = int(round(act["progress"] * 100))
     st.markdown(
