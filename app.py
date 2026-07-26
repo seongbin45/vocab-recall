@@ -702,19 +702,42 @@ def header_stats(data: dict) -> None:
     render_calendar(data)
 
 
+def _streamlit_text_color() -> str:
+    """
+    Text color from Streamlit theme config when set.
+    Empty string → component JS will read parent --text-color.
+    """
+    try:
+        custom = st.get_option("theme.textColor")
+        if custom:
+            return str(custom).strip()
+    except Exception:
+        pass
+    try:
+        base = st.get_option("theme.base")
+        # Official Streamlit defaults (only used if theme.base is set)
+        if base == "dark":
+            return "#FAFAFA"
+        if base == "light":
+            return "#31333F"
+    except Exception:
+        pass
+    return ""
+
+
 def play_pronunciation(text: str, *, key: str) -> None:
     """
     Hear the English word via the browser (Web Speech API).
 
-    Speaker icon control; colors/fonts inherit from the host (no hardcoding).
-    Speech starts on a direct tap inside this component (required on mobile).
+    Speaker icon in an iframe cannot see Streamlit CSS, so theme text color
+    is applied from the host (parent --text-color or theme config).
+    Speech starts on a direct tap (required on mobile).
     """
     word = (text or "").strip()
     if not word:
         return
-    # key keeps each card’s widget identity stable across Streamlit reruns
     _ = key
-    # SVG uses currentColor so it follows theme text color (light/dark)
+    host_color = _streamlit_text_color()
     components.html(
         f"""
         <!DOCTYPE html>
@@ -723,12 +746,11 @@ def play_pronunciation(text: str, *, key: str) -> None:
           <meta charset="utf-8"/>
           <meta name="viewport" content="width=device-width, initial-scale=1"/>
           <style>
-            /* No hardcoded theme colors/fonts — system + currentColor only */
             html, body {{
               margin: 0;
               padding: 0;
               background: transparent;
-              color: CanvasText;
+              color: inherit;
             }}
             .wrap {{
               display: flex;
@@ -747,7 +769,7 @@ def play_pronunciation(text: str, *, key: str) -> None:
               border: none;
               border-radius: 999px;
               background: transparent;
-              color: CanvasText;
+              color: inherit;
               cursor: pointer;
               -webkit-tap-highlight-color: transparent;
               line-height: 0;
@@ -762,7 +784,7 @@ def play_pronunciation(text: str, *, key: str) -> None:
             #msg {{
               display: none;
               text-align: center;
-              color: CanvasText;
+              color: inherit;
               opacity: 0.8;
               margin: 0;
               font: inherit;
@@ -782,9 +804,76 @@ def play_pronunciation(text: str, *, key: str) -> None:
           <script>
           (function () {{
             const text = {json.dumps(word)};
+            const hostColor = {json.dumps(host_color)};
             const btn = document.getElementById("listen");
             const msg = document.getElementById("msg");
 
+            function applyColor(c) {{
+              if (!c) return;
+              document.documentElement.style.color = c;
+              document.body.style.color = c;
+              btn.style.color = c;
+            }}
+
+            // 1) Parent Streamlit theme vars (same-origin iframe)
+            // 2) Color passed from Python theme config
+            // 3) prefers-color-scheme (OS), not hardcoded hex in CSS
+            function resolveThemeColor() {{
+              try {{
+                const doc = window.parent.document;
+                const root = doc.documentElement;
+                const body = doc.body;
+                const app = doc.querySelector(".stApp") || doc.querySelector("[data-testid='stAppViewContainer']");
+                const rs = window.parent.getComputedStyle(root);
+                const bs = window.parent.getComputedStyle(body);
+                const as = app ? window.parent.getComputedStyle(app) : null;
+                const candidates = [
+                  rs.getPropertyValue("--text-color"),
+                  rs.getPropertyValue("--textColor"),
+                  as ? as.getPropertyValue("--text-color") : "",
+                  as ? as.color : "",
+                  bs.color,
+                  as ? as.color : "",
+                ];
+                for (let i = 0; i < candidates.length; i++) {{
+                  const v = (candidates[i] || "").trim();
+                  // Ignore fully transparent / empty
+                  if (v && v !== "rgba(0, 0, 0, 0)" && v !== "transparent") return v;
+                }}
+              }} catch (e) {{ /* cross-origin sandbox */ }}
+              if (hostColor) return hostColor;
+              try {{
+                // OS scheme fallback (Streamlit "auto" often tracks this)
+                if (window.matchMedia("(prefers-color-scheme: dark)").matches) {{
+                  return "#FAFAFA";
+                }}
+                if (window.matchMedia("(prefers-color-scheme: light)").matches) {{
+                  return "#31333F";
+                }}
+              }} catch (e2) {{}}
+              return "CanvasText";
+            }}
+
+            function refreshColor() {{ applyColor(resolveThemeColor()); }}
+            refreshColor();
+            // Parent theme vars often apply a tick after iframe paint
+            setTimeout(refreshColor, 50);
+            setTimeout(refreshColor, 250);
+
+            try {{
+              const mo = new MutationObserver(refreshColor);
+              mo.observe(window.parent.document.documentElement, {{
+                attributes: true,
+                attributeFilter: ["data-theme", "class", "style"],
+              }});
+              const app = window.parent.document.querySelector(".stApp");
+              if (app) {{
+                mo.observe(app, {{ attributes: true, attributeFilter: ["class", "style"] }});
+              }}
+            }} catch (e3) {{}}
+            try {{
+              window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", refreshColor);
+            }} catch (e4) {{}}
             function showErr(t) {{
               msg.hidden = false;
               msg.classList.add("show");
