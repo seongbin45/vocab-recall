@@ -704,31 +704,128 @@ def header_stats(data: dict) -> None:
 
 def play_pronunciation(text: str, *, key: str) -> None:
     """
-    Step 1 — hear the English word via the browser (Web Speech API).
-    No API key, no extra packages. Quality depends on the device/OS voice.
+    Hear the English word via the browser (Web Speech API).
+
+    Important for mobile: speech must start from a *direct* tap on a control
+    inside this component. A Streamlit button → rerun → inject script loses
+    the user gesture, so iOS/Android silence it.
     """
     word = (text or "").strip()
     if not word:
         return
-    if st.button("Listen", key=key, use_container_width=True):
-        # Runs in a tiny component after the click (user gesture → allowed to speak)
-        components.html(
-            f"""
-            <script>
-            (function () {{
-              const text = {json.dumps(word)};
-              if (!window.speechSynthesis) {{ return; }}
-              window.speechSynthesis.cancel();
+    # key keeps each card’s widget identity stable across Streamlit reruns
+    _ = key
+    components.html(
+        f"""
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta charset="utf-8"/>
+          <meta name="viewport" content="width=device-width, initial-scale=1"/>
+          <style>
+            html, body {{
+              margin: 0; padding: 0;
+              background: transparent;
+              font-family: system-ui, -apple-system, sans-serif;
+            }}
+            button {{
+              width: 100%;
+              min-height: 3.25rem;
+              font-size: 1.1rem;
+              font-weight: 600;
+              border-radius: 12px;
+              border: 1px solid rgba(127,127,127,0.45);
+              background: transparent;
+              color: inherit;
+              cursor: pointer;
+              -webkit-tap-highlight-color: transparent;
+            }}
+            button:active {{ opacity: 0.75; }}
+            .err {{
+              font-size: 0.8rem;
+              color: #ef4444;
+              text-align: center;
+              margin-top: 0.25rem;
+            }}
+          </style>
+        </head>
+        <body>
+          <button id="listen" type="button">Listen</button>
+          <div id="msg" class="err" hidden></div>
+          <script>
+          (function () {{
+            const text = {json.dumps(word)};
+            const btn = document.getElementById("listen");
+            const msg = document.getElementById("msg");
+
+            function showErr(t) {{
+              msg.hidden = false;
+              msg.textContent = t;
+            }}
+
+            function pickVoice(synth) {{
+              const voices = synth.getVoices() || [];
+              // Prefer an English voice when the OS exposes one
+              return (
+                voices.find(v => v.lang === "en-US") ||
+                voices.find(v => v.lang === "en-GB") ||
+                voices.find(v => (v.lang || "").toLowerCase().startsWith("en")) ||
+                null
+              );
+            }}
+
+            function speak() {{
+              const synth = window.speechSynthesis;
+              if (!synth) {{
+                showErr("Speech not supported in this browser");
+                return;
+              }}
+              try {{
+                synth.cancel();
+              }} catch (e) {{}}
+
               const u = new SpeechSynthesisUtterance(text);
               u.lang = "en-US";
               u.rate = 0.9;
-              window.speechSynthesis.speak(u);
-            }})();
-            </script>
-            """,
-            height=0,
-            width=0,
-        )
+              u.pitch = 1;
+              const voice = pickVoice(synth);
+              if (voice) {{
+                u.voice = voice;
+                u.lang = voice.lang || "en-US";
+              }}
+
+              // iOS often needs a short delay after cancel()
+              setTimeout(function () {{
+                try {{
+                  synth.speak(u);
+                }} catch (e) {{
+                  showErr("Could not play audio");
+                }}
+              }}, 60);
+            }}
+
+            // Prime voice list (Chrome/iOS load voices async)
+            if (window.speechSynthesis) {{
+              window.speechSynthesis.getVoices();
+              window.speechSynthesis.onvoiceschanged = function () {{
+                window.speechSynthesis.getVoices();
+              }};
+            }}
+
+            // Direct tap handler — keeps user gesture for mobile autoplay policy
+            btn.addEventListener("click", function (e) {{
+              e.preventDefault();
+              e.stopPropagation();
+              msg.hidden = true;
+              speak();
+            }}, {{ passive: false }});
+          }})();
+          </script>
+        </body>
+        </html>
+        """,
+        height=64,
+    )
 
 
 def show_recall(data: dict) -> None:
