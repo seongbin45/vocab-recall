@@ -8,32 +8,25 @@ Plain Streamlit UI (works on phone and PC). No custom visual design.
 
 from __future__ import annotations
 
-import os
-import tempfile
-from pathlib import Path
-
 import streamlit as st
 
 from bank import BANKS, bank_stats, draw_words
+from storage import (
+    export_json,
+    file_data_path,
+    import_json,
+    load_progress,
+    persist_progress,
+)
 from vocab import (
-    DEFAULT_DATA,
-    ensure_data,
     failed_queue,
     mark_result,
     next_day_queue,
     parse_batch,
-    save_data,
     stats,
     today,
     weekly_due,
 )
-
-
-def is_streamlit_cloud() -> bool:
-    """Community Cloud mounts the app under /mount/src."""
-    return Path("/mount/src").exists() or os.environ.get(
-        "STREAMLIT_RUNTIME_ENVIRONMENT", ""
-    ).lower() == "cloud"
 
 # ---------------------------------------------------------------------------
 # Page — plain Streamlit, larger controls only
@@ -241,42 +234,15 @@ DEFAULT_SETTINGS = {
 }
 
 
-def data_path() -> Path:
-    """Local: ~/.vocab/data.json. Streamlit Cloud: per-browser-session file."""
-    qp = st.query_params.get("data")
-    if qp:
-        return Path(qp)
-    env = os.environ.get("VOCAB_DATA")
-    if env:
-        return Path(env)
-    if is_streamlit_cloud():
-        try:
-            from streamlit.runtime.scriptrunner import get_script_run_ctx
-
-            ctx = get_script_run_ctx()
-            sid = (ctx.session_id if ctx else "default").replace("/", "_")
-        except Exception:
-            sid = "default"
-        path = Path(tempfile.gettempdir()) / "vocab-recall" / f"{sid}.json"
-        path.parent.mkdir(parents=True, exist_ok=True)
-        return path
-    return DEFAULT_DATA
-
-
 def load_data() -> dict:
-    data = ensure_data(st.session_state.path)
-    data.setdefault("settings", {})
-    for k, v in DEFAULT_SETTINGS.items():
-        data["settings"].setdefault(k, v)
-    n = int(data["settings"].get("batch_size", 5))
-    data["settings"]["batch_size"] = max(3, min(5, n))
+    data = load_progress(DEFAULT_SETTINGS)
     if data["settings"].get("bank") not in BANKS:
         data["settings"]["bank"] = "absolute_beginner"
     return data
 
 
 def persist(data: dict) -> None:
-    save_data(st.session_state.path, data)
+    persist_progress(data)
 
 
 def find_item(data: dict, item_id: int) -> dict | None:
@@ -338,7 +304,7 @@ def init_session() -> None:
     if "weekly_ids" not in ss:
         ss.weekly_ids = []
     if "path" not in ss:
-        ss.path = data_path()
+        ss.path = file_data_path()
     if "chain" not in ss:
         ss.chain = []
 
@@ -594,12 +560,33 @@ def show_done(data: dict) -> None:
                 else:
                     st.warning("Those words are already saved.")
 
-        st.caption(f"Data file: {st.session_state.path}")
+        st.caption(
+            "Progress is saved in this browser (localStorage) and, when possible, "
+            f"to a file: `{st.session_state.get('path') or file_data_path()}`"
+        )
+        st.download_button(
+            "Download backup JSON",
+            data=export_json(data),
+            file_name="vocab-data.json",
+            mime="application/json",
+            use_container_width=True,
+        )
+        up = st.file_uploader("Restore backup JSON", type=["json"])
+        if up is not None and st.button("Import backup", use_container_width=True):
+            text = up.getvalue().decode("utf-8")
+            restored = import_json(text, DEFAULT_SETTINGS)
+            if restored is None:
+                st.error("Invalid backup file.")
+            else:
+                persist(restored)
+                st.session_state.booted = False
+                st.session_state.phase = "boot"
+                st.success("Backup restored.")
+                st.rerun()
 
 
 def main() -> None:
     init_session()
-    st.session_state.path = data_path()
     data = load_data()
 
     if not st.session_state.booted:

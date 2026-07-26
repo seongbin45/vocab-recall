@@ -10,7 +10,7 @@ Local-first. One JSON file. No SRS, no accounts, no streaks.
 2. Python dependencies: **`requirements.txt`**
 3. [share.streamlit.io](https://share.streamlit.io) → **New app** → pick this repo → Main file path: `app.py` → Deploy
 
-On Cloud, progress is **per browser session** (isolated users). For lasting personal data, run locally (`streamlit run app.py`) so files go to `~/.vocab/data.json`.
+Progress is stored in the **browser (localStorage)** so it survives refresh on Streamlit Cloud, and also to `~/.vocab/data.json` when running locally. Use **Settings → Download / Restore backup JSON** to move progress between devices.
 
 ## Complete stack
 
