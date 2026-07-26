@@ -8,6 +8,9 @@ Plain Streamlit UI (works on phone and PC). No custom visual design.
 
 from __future__ import annotations
 
+import calendar as cal_mod
+from datetime import date, timedelta
+
 import streamlit as st
 
 from bank import BANKS, bank_stats, draw_words
@@ -23,6 +26,7 @@ from vocab import (
     mark_result,
     next_day_queue,
     parse_batch,
+    parse_date,
     stats,
     today,
     weekly_due,
@@ -222,6 +226,50 @@ st.markdown(
   .stTextArea textarea {
     min-height: clamp(6rem, 18vh, 10rem) !important;
   }
+
+  /* ---- Calendar ---- */
+  .cal-wrap {
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    padding: 0.65rem 0.5rem 0.75rem;
+    margin-bottom: 0.35rem;
+  }
+  .cal-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.65rem 1rem;
+    font-size: 0.8rem;
+    color: #6b7280;
+    margin: 0.35rem 0 0.15rem;
+  }
+  .cal-legend span::before {
+    content: "";
+    display: inline-block;
+    width: 0.55rem;
+    height: 0.55rem;
+    border-radius: 50%;
+    margin-right: 0.3rem;
+    vertical-align: middle;
+  }
+  .cal-legend .lg-done::before { background: #22c55e; }
+  .cal-legend .lg-partial::before { background: #f59e0b; }
+  .cal-legend .lg-fail::before { background: #ef4444; }
+  .cal-legend .lg-empty::before { background: #d1d5db; }
+  .cal-day-summary {
+    font-size: 0.95rem;
+    color: #374151;
+    margin: 0.25rem 0 0.15rem;
+  }
+  /* Day buttons: compact for 7-col grid */
+  div[data-testid="stHorizontalBlock"] .stButton > button[kind="secondary"],
+  div[data-testid="stHorizontalBlock"] .stButton > button {
+    min-height: 3.1rem !important;
+    font-size: 0.78rem !important;
+    padding: 0.2rem 0.15rem !important;
+    line-height: 1.15 !important;
+    white-space: pre-line !important;
+  }
 </style>
 """,
     unsafe_allow_html=True,
@@ -307,6 +355,12 @@ def init_session() -> None:
         ss.path = file_data_path()
     if "chain" not in ss:
         ss.chain = []
+    if "selected_day" not in ss:
+        ss.selected_day = today().isoformat()
+    if "cal_month" not in ss:
+        t = today()
+        ss.cal_month = t.month
+        ss.cal_year = t.year
 
 
 def start_recall(ids: list[int], field: str, label: str, chain: list[str]) -> None:
@@ -402,12 +456,174 @@ def advance_chain(data: dict) -> None:
     st.rerun()
 
 
-def header_stats(data: dict) -> None:
-    s = stats(data, today())
+def day_activity(data: dict, d: date) -> dict:
+    """Per-day word count and progress for items added on d."""
+    key = d.isoformat()
+    items = [it for it in data.get("items", []) if it.get("added") == key]
+    n = len(items)
+    same_done = sum(1 for it in items if it.get("same_day") is not None)
+    same_pass = sum(1 for it in items if it.get("same_day") == "pass")
+    next_done = sum(1 for it in items if it.get("next_day") is not None)
+    next_pass = sum(1 for it in items if it.get("next_day") == "pass")
+    fails = sum(1 for it in items if it.get("failed"))
+    # Progress: weight same-day 50% + next-day 50% when words exist
+    if n == 0:
+        progress = 0.0
+        status = "empty"
+    else:
+        progress = (same_done + next_done) / (2 * n)
+        if fails:
+            status = "fail"
+        elif same_done >= n and next_done >= n:
+            status = "done"
+        elif same_done > 0 or next_done > 0:
+            status = "partial"
+        else:
+            status = "todo"
+    return {
+        "count": n,
+        "same_done": same_done,
+        "same_pass": same_pass,
+        "next_done": next_done,
+        "next_pass": next_pass,
+        "fails": fails,
+        "progress": progress,
+        "status": status,
+        "items": items,
+    }
+
+
+def _status_marker(status: str) -> str:
+    return {
+        "done": "●",
+        "partial": "◐",
+        "fail": "!",
+        "todo": "○",
+        "empty": "·",
+    }.get(status, "·")
+
+
+def render_calendar(data: dict) -> None:
+    """Month calendar at top: select a day; show progress + word count."""
+    t = today()
+    if "cal_year" not in st.session_state:
+        st.session_state.cal_year = t.year
+        st.session_state.cal_month = t.month
+    if "selected_day" not in st.session_state:
+        st.session_state.selected_day = t.isoformat()
+
+    year = int(st.session_state.cal_year)
+    month = int(st.session_state.cal_month)
+
+    nav_l, nav_c, nav_r = st.columns([1, 3, 1])
+    with nav_l:
+        if st.button("‹", key="cal_prev", use_container_width=True):
+            first = date(year, month, 1)
+            prev = first - timedelta(days=1)
+            st.session_state.cal_year = prev.year
+            st.session_state.cal_month = prev.month
+            st.rerun()
+    with nav_c:
+        st.markdown(
+            f"<div style='text-align:center;font-weight:650;padding-top:0.35rem'>"
+            f"{cal_mod.month_name[month]} {year}</div>",
+            unsafe_allow_html=True,
+        )
+    with nav_r:
+        if st.button("›", key="cal_next", use_container_width=True):
+            if month == 12:
+                st.session_state.cal_year = year + 1
+                st.session_state.cal_month = 1
+            else:
+                st.session_state.cal_month = month + 1
+            st.rerun()
+
+    # Weekday headers
+    hdr = st.columns(7)
+    for i, name in enumerate(["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]):
+        hdr[i].caption(name)
+
+    weeks = cal_mod.Calendar(firstweekday=0).monthdayscalendar(year, month)
+    selected = st.session_state.selected_day
+
+    for wi, week in enumerate(weeks):
+        cols = st.columns(7)
+        for di, day_num in enumerate(week):
+            with cols[di]:
+                if day_num == 0:
+                    st.write("")
+                    continue
+                d = date(year, month, day_num)
+                iso = d.isoformat()
+                act = day_activity(data, d)
+                marker = _status_marker(act["status"])
+                if act["count"]:
+                    label = f"{day_num}\n{marker} {act['count']}"
+                else:
+                    label = f"{day_num}\n{marker}"
+                # Future days: still selectable for empty view
+                is_sel = iso == selected
+                btn_type = "primary" if is_sel else "secondary"
+                if st.button(
+                    label,
+                    key=f"cal_{iso}",
+                    use_container_width=True,
+                    type=btn_type,
+                ):
+                    st.session_state.selected_day = iso
+                    st.rerun()
+
+    st.markdown(
+        '<div class="cal-legend">'
+        '<span class="lg-done">done</span>'
+        '<span class="lg-partial">in progress</span>'
+        '<span class="lg-fail">has fails</span>'
+        '<span class="lg-empty">no words</span>'
+        "</div>",
+        unsafe_allow_html=True,
+    )
+
+    # Selected day panel: progress + word count
+    try:
+        sel = parse_date(st.session_state.selected_day)
+    except Exception:
+        sel = t
+        st.session_state.selected_day = t.isoformat()
+    act = day_activity(data, sel)
+    pct = int(round(act["progress"] * 100))
+    st.markdown(
+        f'<div class="cal-day-summary"><strong>{sel.isoformat()}</strong> · '
+        f"words <strong>{act['count']}</strong> · "
+        f"progress <strong>{pct}%</strong> "
+        f"(same-day {act['same_done']}/{act['count'] or 0}, "
+        f"next-day {act['next_done']}/{act['count'] or 0}"
+        f"{', fails ' + str(act['fails']) if act['fails'] else ''})"
+        f"</div>",
+        unsafe_allow_html=True,
+    )
+    if act["items"]:
+        with st.expander(f"Words on {sel.isoformat()} ({act['count']})", expanded=False):
+            for it in act["items"]:
+                flags = []
+                if it.get("same_day"):
+                    flags.append(f"same:{it['same_day']}")
+                if it.get("next_day"):
+                    flags.append(f"next:{it['next_day']}")
+                if it.get("failed"):
+                    flags.append("FAIL")
+                flag = f" — {', '.join(flags)}" if flags else " — pending"
+                st.write(f"**{it['en']}** · {it['ko']}{flag}")
+
+    s = stats(data, t)
     st.caption(
         f"week +{s['added_this_week']}  ·  fail {s['failed']}  ·  "
         f"next-day {s['pending_next_day']}  ·  total {s['total']}"
     )
+
+
+def header_stats(data: dict) -> None:
+    """Top chrome: calendar for day selection + progress / word counts."""
+    render_calendar(data)
 
 
 def show_recall(data: dict) -> None:
