@@ -1,0 +1,25 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.venv/
+venv/
+.env
+
+# Local user progress (never ship personal recall data)
+.vocab/
+*.tmp
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
+# Scratch / reference archives
+*.zip
+_zip_inspect/
+
+# Streamlit
+.streamlit/secrets.toml

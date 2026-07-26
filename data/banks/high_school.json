@@ -1,0 +1,212 @@
+{
+  "name": "high_school",
+  "source": "High school",
+  "origin_file": "High school words.xlsx",
+  "count": 51,
+  "words": [
+    {
+      "en": "survey",
+      "ko": "답사"
+    },
+    {
+      "en": "existence",
+      "ko": "존재 · 현존 · 생존 · 생활 · 실체"
+    },
+    {
+      "en": "hardship",
+      "ko": "어려움 · 고난 · 궁핍 · 고생"
+    },
+    {
+      "en": "convenience",
+      "ko": "편의 · 편리 · 편한 · 편익 · 용이함"
+    },
+    {
+      "en": "resistance",
+      "ko": "저항 · 내성 · 반대 · 저지 · 레지스탕스"
+    },
+    {
+      "en": "influence",
+      "ko": "영향 · 요인 · 변화 · 결과 · 작용"
+    },
+    {
+      "en": "criticism",
+      "ko": "비판 · 비난 · 비평 · 혹평"
+    },
+    {
+      "en": "universe",
+      "ko": "우주 · 세계"
+    },
+    {
+      "en": "panic",
+      "ko": "공황 · 공포 · 당황 · 패닉 · 두려워하다"
+    },
+    {
+      "en": "insight",
+      "ko": "통찰력 · 보여줌 · 이해 · 식견"
+    },
+    {
+      "en": "siege",
+      "ko": "포위 공격 · 포위 기간 · …을 포위하다"
+    },
+    {
+      "en": "conquest",
+      "ko": "정복 · 승리 · 점령"
+    },
+    {
+      "en": "anachronism",
+      "ko": "시대 착오 · 시대에 뒤진 것 · 시대 착오적인 것"
+    },
+    {
+      "en": "luxury",
+      "ko": "명품 · 고급의 · 럭셔리 · 호화로운 · 사치스러운"
+    },
+    {
+      "en": "disgrace",
+      "ko": "불명예 · 부끄러운 · 명예를 더럽히다"
+    },
+    {
+      "en": "monotony",
+      "ko": "단조로움 · 단음 · 한결같음"
+    },
+    {
+      "en": "challenge",
+      "ko": "도전 · 문제 · 난제 · 이의를 제기하다 · 항의"
+    },
+    {
+      "en": "system",
+      "ko": "시스템 · 제도 · 체계 · 장치 · 체제"
+    },
+    {
+      "en": "responsibility",
+      "ko": "책임 · 의무 · 할 일 · 책무 · 임무"
+    },
+    {
+      "en": "literature",
+      "ko": "문학 · 문헌 · 문예 · 인쇄물 · 조사 보고서"
+    },
+    {
+      "en": "chivalry",
+      "ko": "기사도 · 기사 제도 · 기사단"
+    },
+    {
+      "en": "psychology",
+      "ko": "심리"
+    },
+    {
+      "en": "method",
+      "ko": "방법 · 방식 · 수단"
+    },
+    {
+      "en": "character",
+      "ko": "캐릭터 · 인물 · 특징 · 성격 · 문자"
+    },
+    {
+      "en": "hypocrisy",
+      "ko": "위선 · 가장 · 양의 탈을 쓰기"
+    },
+    {
+      "en": "evolution",
+      "ko": "진화 · 변화"
+    },
+    {
+      "en": "emotion",
+      "ko": "감정 · 정서 · 감성 · 기분 · 감동"
+    },
+    {
+      "en": "individual",
+      "ko": "개인의 · 개별의 · 개개의 · 각기 다른"
+    },
+    {
+      "en": "calamity",
+      "ko": "재난 · 불행 · 참화"
+    },
+    {
+      "en": "famine",
+      "ko": "기근 · 기아 · 굶주림"
+    },
+    {
+      "en": "passion",
+      "ko": "열정 · 흥미 · 감정"
+    },
+    {
+      "en": "fatigue",
+      "ko": "피로 · 피곤 · 마비 · 작업복"
+    },
+    {
+      "en": "jealousy",
+      "ko": "질투"
+    },
+    {
+      "en": "envy",
+      "ko": "부러워하다 · 질투하다 · 선망"
+    },
+    {
+      "en": "vanity",
+      "ko": "허영심 · 화장대"
+    },
+    {
+      "en": "ambition",
+      "ko": "야망 · 야심 · 꿈 · 욕심"
+    },
+    {
+      "en": "stimulus",
+      "ko": "자극 · 부양책 · 고무"
+    },
+    {
+      "en": "revolution",
+      "ko": "혁명 · 혁신 · 개혁 · 변혁 · 회전"
+    },
+    {
+      "en": "vice",
+      "ko": "대리의 · 악"
+    },
+    {
+      "en": "virtue",
+      "ko": "미덕 · 덕목 · 덕행 · 군자"
+    },
+    {
+      "en": "impulse",
+      "ko": "충동 · 자극 · 원동력 · 욕망"
+    },
+    {
+      "en": "privilege",
+      "ko": "특권 · 영광 · 특례 · 혜택"
+    },
+    {
+      "en": "instinct",
+      "ko": "본능 · 직감 · 직관"
+    },
+    {
+      "en": "prejudice",
+      "ko": "편견 · 편향 · 선입관 · 손상"
+    },
+    {
+      "en": "civilization",
+      "ko": "문명"
+    },
+    {
+      "en": "culture",
+      "ko": "문화 · 배양 · 문명"
+    },
+    {
+      "en": "intellect",
+      "ko": "지성 · 지식인"
+    },
+    {
+      "en": "conscience",
+      "ko": "양심 · 의식 · 개념 · 인지 · 소신"
+    },
+    {
+      "en": "religious",
+      "ko": "종교의 · 신앙의 · 독실한"
+    },
+    {
+      "en": "patriotism",
+      "ko": "애국심 · 애국 · 애국적 행위"
+    },
+    {
+      "en": "tradition",
+      "ko": "전통 · 관습 · 전해지는"
+    }
+  ]
+}
