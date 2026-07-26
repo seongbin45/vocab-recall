@@ -12,6 +12,7 @@ import calendar as cal_mod
 from datetime import date, timedelta
 
 import streamlit as st
+import streamlit.components.v1 as components
 
 from bank import BANKS, bank_stats, draw_words
 from storage import (
@@ -203,22 +204,6 @@ st.markdown(
     margin-top: var(--space-3);
   }
 
-  /* Narrow phone: stack Got it / Missed (full-width rows, fluid vertical gap) */
-  @media (max-width: 420px) {
-    div[data-testid="stHorizontalBlock"] {
-      flex-direction: column !important;
-      flex-wrap: nowrap !important;
-      gap: var(--stack-gap) !important;
-    }
-    div[data-testid="stHorizontalBlock"] > div[data-testid="column"],
-    div[data-testid="stHorizontalBlock"] > div[data-testid="stColumn"],
-    div[data-testid="stHorizontalBlock"] > div {
-      width: 100% !important;
-      flex: 1 1 auto !important;
-      min-width: 0 !important;
-    }
-  }
-
   /* Expander / form controls spacing */
   .streamlit-expanderContent {
     padding-top: var(--space-2) !important;
@@ -227,29 +212,94 @@ st.markdown(
     min-height: clamp(6rem, 18vh, 10rem) !important;
   }
 
-  /* ---- Calendar ---- */
-  .cal-wrap {
+  /* ---- Calendar (CSS grid — stays 7 columns on mobile) ---- */
+  .cal-shell {
     background: #fff;
     border: 1px solid #e5e7eb;
     border-radius: 12px;
-    padding: 0.65rem 0.5rem 0.75rem;
-    margin-bottom: 0.35rem;
+    padding: 0.55rem 0.45rem 0.65rem;
+    margin: 0.15rem 0 0.35rem;
+  }
+  .cal-grid {
+    display: grid !important;
+    grid-template-columns: repeat(7, minmax(0, 1fr)) !important;
+    gap: 0.28rem;
+    width: 100%;
+  }
+  .cal-wd {
+    text-align: center;
+    font-size: 0.68rem;
+    font-weight: 600;
+    color: #9ca3af;
+    padding: 0.15rem 0;
+  }
+  .cal-cell {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: clamp(2.55rem, 11vw, 3.35rem);
+    border-radius: 8px;
+    border: 1px solid #e5e7eb;
+    background: #f9fafb;
+    text-decoration: none !important;
+    color: #111827 !important;
+    font-size: clamp(0.68rem, 2.6vw, 0.82rem);
+    line-height: 1.15;
+    box-sizing: border-box;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .cal-cell .n { font-weight: 650; font-size: 0.95em; }
+  .cal-cell .m {
+    font-size: 0.85em;
+    color: #6b7280;
+    margin-top: 0.12rem;
+  }
+  .cal-cell.pad {
+    border: none;
+    background: transparent;
+    pointer-events: none;
+  }
+  .cal-cell.st-empty .m { color: #d1d5db; }
+  .cal-cell.st-todo { background: #fff; border-color: #d1d5db; }
+  .cal-cell.st-partial {
+    background: #fffbeb;
+    border-color: #f59e0b;
+  }
+  .cal-cell.st-partial .m { color: #b45309; }
+  .cal-cell.st-done {
+    background: #ecfdf5;
+    border-color: #22c55e;
+  }
+  .cal-cell.st-done .m { color: #15803d; }
+  .cal-cell.st-fail {
+    background: #fef2f2;
+    border-color: #ef4444;
+  }
+  .cal-cell.st-fail .m { color: #b91c1c; }
+  .cal-cell.selected {
+    outline: 2px solid #2563eb;
+    outline-offset: 1px;
+    border-color: #2563eb !important;
+  }
+  .cal-cell.today:not(.selected) {
+    border-color: #93c5fd;
   }
   .cal-legend {
     display: flex;
     flex-wrap: wrap;
-    gap: 0.65rem 1rem;
-    font-size: 0.8rem;
+    gap: 0.45rem 0.85rem;
+    font-size: 0.75rem;
     color: #6b7280;
-    margin: 0.35rem 0 0.15rem;
+    margin: 0.45rem 0 0.1rem;
   }
   .cal-legend span::before {
     content: "";
     display: inline-block;
-    width: 0.55rem;
-    height: 0.55rem;
+    width: 0.5rem;
+    height: 0.5rem;
     border-radius: 50%;
-    margin-right: 0.3rem;
+    margin-right: 0.28rem;
     vertical-align: middle;
   }
   .cal-legend .lg-done::before { background: #22c55e; }
@@ -257,18 +307,17 @@ st.markdown(
   .cal-legend .lg-fail::before { background: #ef4444; }
   .cal-legend .lg-empty::before { background: #d1d5db; }
   .cal-day-summary {
-    font-size: 0.95rem;
+    font-size: 0.92rem;
     color: #374151;
-    margin: 0.25rem 0 0.15rem;
+    margin: 0.35rem 0 0.1rem;
+    line-height: 1.35;
   }
-  /* Day buttons: compact for 7-col grid */
-  div[data-testid="stHorizontalBlock"] .stButton > button[kind="secondary"],
-  div[data-testid="stHorizontalBlock"] .stButton > button {
-    min-height: 3.1rem !important;
-    font-size: 0.78rem !important;
-    padding: 0.2rem 0.15rem !important;
-    line-height: 1.15 !important;
-    white-space: pre-line !important;
+  /* Month nav stays 3-across even on small phones */
+  @media (max-width: 640px) {
+    div[data-testid="stHorizontalBlock"]:has(button#cal_prev),
+    div[data-testid="stHorizontalBlock"]:has(button[kind][data-testid*="cal"]) {
+      flex-direction: row !important;
+    }
   }
 </style>
 """,
@@ -503,9 +552,70 @@ def _status_marker(status: str) -> str:
     }.get(status, "·")
 
 
-def render_calendar(data: dict) -> None:
-    """Month calendar at top: select a day; show progress + word count."""
+def _sync_calendar_query() -> None:
+    """Read day selection from URL (HTML grid links work on mobile)."""
+    try:
+        raw = st.query_params.get("cal_day")
+    except Exception:
+        raw = None
+    if not raw:
+        return
+    if isinstance(raw, list):
+        raw = raw[0] if raw else None
+    if not raw:
+        return
+    try:
+        d = parse_date(str(raw))
+    except Exception:
+        return
+    st.session_state.selected_day = d.isoformat()
+    # Keep month view on the selected day
+    st.session_state.cal_year = d.year
+    st.session_state.cal_month = d.month
+
+
+def _calendar_grid_html(data: dict, year: int, month: int, selected: str) -> str:
+    """True 7-column CSS grid — does not collapse on mobile Streamlit layouts."""
     t = today()
+    parts: list[str] = ['<div class="cal-shell"><div class="cal-grid">']
+    for name in ("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"):
+        parts.append(f'<div class="cal-wd">{name}</div>')
+
+    weeks = cal_mod.Calendar(firstweekday=0).monthdayscalendar(year, month)
+    for week in weeks:
+        for day_num in week:
+            if day_num == 0:
+                parts.append('<div class="cal-cell pad"></div>')
+                continue
+            d = date(year, month, day_num)
+            iso = d.isoformat()
+            act = day_activity(data, d)
+            st_cls = f"st-{act['status']}"
+            if iso == selected:
+                st_cls += " selected"
+            if d == t:
+                st_cls += " today"
+            marker = _status_marker(act["status"])
+            if act["count"]:
+                meta = f"{marker} {act['count']}"
+            else:
+                meta = marker
+            # Relative query keeps Streamlit session; forces grid taps on phone
+            parts.append(
+                f'<a class="cal-cell {st_cls}" href="?cal_day={iso}" '
+                f'title="{iso}: {act["count"]} words, {int(act["progress"]*100)}%">'
+                f'<span class="n">{day_num}</span>'
+                f'<span class="m">{meta}</span></a>'
+            )
+    parts.append("</div></div>")
+    return "".join(parts)
+
+
+def render_calendar(data: dict) -> None:
+    """Month calendar at top: CSS grid + day selection; progress + word count."""
+    t = today()
+    _sync_calendar_query()
+
     if "cal_year" not in st.session_state:
         st.session_state.cal_year = t.year
         st.session_state.cal_month = t.month
@@ -538,40 +648,53 @@ def render_calendar(data: dict) -> None:
                 st.session_state.cal_month = month + 1
             st.rerun()
 
-    # Weekday headers
-    hdr = st.columns(7)
-    for i, name in enumerate(["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]):
-        hdr[i].caption(name)
-
-    weeks = cal_mod.Calendar(firstweekday=0).monthdayscalendar(year, month)
     selected = st.session_state.selected_day
-
-    for wi, week in enumerate(weeks):
-        cols = st.columns(7)
-        for di, day_num in enumerate(week):
-            with cols[di]:
-                if day_num == 0:
-                    st.write("")
-                    continue
-                d = date(year, month, day_num)
-                iso = d.isoformat()
-                act = day_activity(data, d)
-                marker = _status_marker(act["status"])
-                if act["count"]:
-                    label = f"{day_num}\n{marker} {act['count']}"
-                else:
-                    label = f"{day_num}\n{marker}"
-                # Future days: still selectable for empty view
-                is_sel = iso == selected
-                btn_type = "primary" if is_sel else "secondary"
-                if st.button(
-                    label,
-                    key=f"cal_{iso}",
-                    use_container_width=True,
-                    type=btn_type,
-                ):
-                    st.session_state.selected_day = iso
-                    st.rerun()
+    # components.html keeps CSS grid intact (st.markdown can flatten mobile layout)
+    grid_html = _calendar_grid_html(data, year, month, selected)
+    # Height: ~6 rows * cell + padding (responsive enough for phones)
+    components.html(
+        f"""<!DOCTYPE html><html><head><meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<style>
+  html, body {{ margin: 0; padding: 0; font-family: system-ui, -apple-system, sans-serif; }}
+  .cal-shell {{
+    background: #fff; border: 1px solid #e5e7eb; border-radius: 12px;
+    padding: 0.45rem 0.35rem 0.5rem;
+  }}
+  .cal-grid {{
+    display: grid; grid-template-columns: repeat(7, minmax(0, 1fr));
+    gap: 0.28rem; width: 100%;
+  }}
+  .cal-wd {{
+    text-align: center; font-size: 0.68rem; font-weight: 600;
+    color: #9ca3af; padding: 0.12rem 0;
+  }}
+  .cal-cell {{
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    min-height: 2.65rem; border-radius: 8px; border: 1px solid #e5e7eb;
+    background: #f9fafb; text-decoration: none; color: #111827;
+    font-size: 0.72rem; line-height: 1.15; box-sizing: border-box;
+  }}
+  .cal-cell .n {{ font-weight: 650; font-size: 0.95em; }}
+  .cal-cell .m {{ font-size: 0.85em; color: #6b7280; margin-top: 0.1rem; }}
+  .cal-cell.pad {{ border: none; background: transparent; pointer-events: none; }}
+  .cal-cell.st-empty .m {{ color: #d1d5db; }}
+  .cal-cell.st-todo {{ background: #fff; border-color: #d1d5db; }}
+  .cal-cell.st-partial {{ background: #fffbeb; border-color: #f59e0b; }}
+  .cal-cell.st-partial .m {{ color: #b45309; }}
+  .cal-cell.st-done {{ background: #ecfdf5; border-color: #22c55e; }}
+  .cal-cell.st-done .m {{ color: #15803d; }}
+  .cal-cell.st-fail {{ background: #fef2f2; border-color: #ef4444; }}
+  .cal-cell.st-fail .m {{ color: #b91c1c; }}
+  .cal-cell.selected {{ outline: 2px solid #2563eb; outline-offset: 1px; border-color: #2563eb; }}
+  .cal-cell.today:not(.selected) {{ border-color: #93c5fd; }}
+  @media (min-width: 420px) {{
+    .cal-cell {{ min-height: 3rem; font-size: 0.8rem; }}
+  }}
+</style></head><body>{grid_html}</body></html>""",
+        height=320,
+        scrolling=False,
+    )
 
     st.markdown(
         '<div class="cal-legend">'
@@ -583,7 +706,6 @@ def render_calendar(data: dict) -> None:
         unsafe_allow_html=True,
     )
 
-    # Selected day panel: progress + word count
     try:
         sel = parse_date(st.session_state.selected_day)
     except Exception:
