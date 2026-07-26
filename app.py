@@ -673,7 +673,7 @@ def render_calendar(data: dict) -> None:
 
     sel = parse_date(st.session_state.selected_day)
     act = day_activity(data, sel)
-    # Day detail only when there are words (keeps top of screen free)
+    # Day list + optional review (only when that day has words)
     if act["items"]:
         with st.expander(
             f"{sel.isoformat()} · {act['count']} words · "
@@ -685,6 +685,16 @@ def render_calendar(data: dict) -> None:
                 f"next-day {act['next_done']}/{act['count']}"
                 + (f" · fails {act['fails']}" if act["fails"] else "")
             )
+            # Review this day's batch in focus mode (does not overwrite same/next-day)
+            if st.button(
+                f"Review {act['count']} words",
+                key=f"review_day_{sel.isoformat()}",
+                type="primary",
+                use_container_width=True,
+            ):
+                st.session_state.go_review_ids = [it["id"] for it in act["items"]]
+                st.session_state.go_review_day = True
+                st.rerun()
             for it in act["items"]:
                 flags = []
                 if it.get("same_day"):
@@ -1112,6 +1122,17 @@ def main() -> None:
         if not auto_start_new(data, ["done"]):
             st.session_state.phase = "done"
             st.warning("No words left in the banks.")
+
+    # Calendar "Review this day" → focus recall for that day's item ids
+    if st.session_state.pop("go_review_day", False):
+        ids = list(st.session_state.pop("go_review_ids", []) or [])
+        # Drop ids that no longer exist
+        valid = [i for i in ids if find_item(data, i)]
+        if valid:
+            start_recall(valid, "review", "Review", ["done"])
+        else:
+            st.session_state.phase = "done"
+            st.warning("No words to review for that day.")
 
     if not st.session_state.booted:
         st.session_state.booted = True
