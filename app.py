@@ -315,11 +315,6 @@ st.markdown(
     margin: 0.35rem 0 0.1rem;
     line-height: 1.35;
   }
-  /* Month nav buttons: normal height, not oversized */
-  div[data-testid="stHorizontalBlock"]:has(button[kind]) .stButton > button {
-    min-height: 2.5rem !important;
-    font-size: 0.95rem !important;
-  }
 </style>
 """,
     unsafe_allow_html=True,
@@ -585,18 +580,6 @@ def _calendar_grid_html(data: dict, year: int, month: int, selected: str) -> str
     return "".join(parts)
 
 
-def _shift_month(year: int, month: int, delta: int) -> tuple[int, int]:
-    m = month + delta
-    y = year
-    while m < 1:
-        m += 12
-        y -= 1
-    while m > 12:
-        m -= 12
-        y += 1
-    return y, m
-
-
 def render_calendar(data: dict) -> None:
     """Month calendar: visual grid + safe date picker (no iframe links)."""
     t = today()
@@ -608,35 +591,16 @@ def render_calendar(data: dict) -> None:
         sel = t
         st.session_state.selected_day = t.isoformat()
 
-    # Keep month view in sync with selection
+    # Month view follows the selected day (via date picker below)
     year = sel.year
     month = sel.month
     st.session_state.cal_year = year
     st.session_state.cal_month = month
 
-    # Compact month nav — plain labels, not awkward glyphs
-    n1, n2, n3 = st.columns([1, 2, 1])
-    def _set_selected(d: date) -> None:
-        st.session_state.selected_day = d.isoformat()
-        st.session_state.cal_date_input = d
-
-    with n1:
-        if st.button("Prev", key="cal_prev", use_container_width=True):
-            y, m = _shift_month(year, month, -1)
-            last = cal_mod.monthrange(y, m)[1]
-            _set_selected(date(y, m, min(sel.day, last)))
-            st.rerun()
-    with n2:
-        st.markdown(
-            f"<div class='cal-month-title'>{cal_mod.month_name[month]} {year}</div>",
-            unsafe_allow_html=True,
-        )
-    with n3:
-        if st.button("Next", key="cal_next", use_container_width=True):
-            y, m = _shift_month(year, month, 1)
-            last = cal_mod.monthrange(y, m)[1]
-            _set_selected(date(y, m, min(sel.day, last)))
-            st.rerun()
+    st.markdown(
+        f"<div class='cal-month-title'>{cal_mod.month_name[month]} {year}</div>",
+        unsafe_allow_html=True,
+    )
 
     # Visual month (display only) — real CSS grid, works on mobile
     st.markdown(
